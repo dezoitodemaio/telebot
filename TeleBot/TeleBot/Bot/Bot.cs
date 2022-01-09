@@ -37,8 +37,10 @@ namespace TeleBot
         {
             _botClient = botClient;
 
-            Plugins.Add(new TerminalPlugin());
+            Plugins.Add(new SystemPlugin());
             Plugins.Add(new ApplicationsPlugin());
+
+            
         }
 
         public async void BotOnMessageReceived(ITelegramBotClient botClient, Message message)
@@ -64,11 +66,16 @@ namespace TeleBot
 
             if(command != null)
             {
-                Task task = Task.Run(() =>
+                try
                 {
-                    command?.ExecuteAsync(this);
-                });              
+                    await command?.ExecuteAsync(this);
 
+                }
+                catch (Exception)
+                {
+
+                    ;
+                }
             }
 
         }
@@ -83,10 +90,10 @@ namespace TeleBot
             })
             {
                 ResizeKeyboard = true,
-                OneTimeKeyboard = !false
+                OneTimeKeyboard = true
             };
 
-            await _botClient.SendTextMessageAsync(chatId: ChatId,
+            var message = await _botClient.SendTextMessageAsync(chatId: ChatId,
                                                         text: caption,
                                                         replyMarkup: replyKeyboardMarkup);
 
@@ -94,9 +101,21 @@ namespace TeleBot
 
             _waitingMessage = true;
 
-            _messageWaiter.WaitOne();
+            var sent = _messageWaiter.WaitOne(10000);
 
             _waitingMessage = false;
+
+            if (!sent)
+            {
+                await _botClient.SendTextMessageAsync(chatId: ChatId,
+                                                        text: "Cancelado por inatividade",
+                                                        replyMarkup: new ReplyKeyboardRemove());
+
+                throw new Exception("Cancelado por inatividade");
+
+
+            }
+
 
             return this._lastMessage;
 
@@ -118,7 +137,7 @@ namespace TeleBot
 
             InlineKeyboardMarkup inlineKeyboard = new InlineKeyboardMarkup(ops);
 
-            await _botClient.SendTextMessageAsync(chatId: ChatId,
+            var message = await _botClient.SendTextMessageAsync(chatId: ChatId,
                                                         text: request.Text,
                                                         replyMarkup: inlineKeyboard);
 
@@ -126,9 +145,21 @@ namespace TeleBot
 
             _waitingPickIption = true;
 
-            _pickOptionWaiter.WaitOne();
+            var sent = _pickOptionWaiter.WaitOne(10 * 1000);
 
             _waitingPickIption = false;
+
+            var v = Enumerable.Empty<InlineKeyboardButton>();
+            await _botClient.EditMessageReplyMarkupAsync(ChatId, message.MessageId, new InlineKeyboardMarkup(v));
+
+            if (!sent)
+            {
+                await _botClient.SendTextMessageAsync(chatId: ChatId,
+                                                        text: "Cancelado por inatividade",
+                                                        replyMarkup: new ReplyKeyboardRemove());
+
+                throw new Exception("Cancelado por inatividade");
+            }
 
             return _pickedOption;
 
@@ -158,7 +189,7 @@ namespace TeleBot
             
         }
 
-        public async void ExecuteAsync(IPluginScope scope)
+        public async Task ExecuteAsync(IPluginScope scope)
         {
             var x = scope.GetPlugins();
 
@@ -174,7 +205,14 @@ namespace TeleBot
 
             if(plug != null)
             {
-                plug.ExecuteAsync(scope);
+                try
+                {
+                    await plug.ExecuteAsync(scope);
+                }
+                catch (Exception)
+                {
+                    ;
+                }
             }
             else
             {
@@ -200,6 +238,52 @@ namespace TeleBot
         }
     }
 
+    public static class BotManager
+    {
+        private static List<Bot> Bots;
+
+        public static Bot Add(string token)
+        {
+            if (StorageManager.Data.Tokens.Any(t => t == token))
+                throw new Exception($"{token} already added");
+
+            var bot = new Bot(token);
+
+            if (!bot.IsOk())
+                throw new Exception($"bot {token} is not working");
+
+            Bots.Add(bot);
+
+            StorageManager.Data.Tokens.Add(token);
+            StorageManager.Save();
+
+            bot.Start();
+
+            return bot;
+        }
+
+        public static void Initialize()
+        {
+            Bots = StorageManager.Data.Tokens.Select(t => new Bot(t)).ToList();
+
+            foreach (var bot in Bots)
+            {
+                bot.Start();
+            }
+        }
+
+        public static void Finish()
+        {
+
+
+            foreach (var bot in Bots)
+            {
+                bot.Stop();
+            }
+        }
+
+    }
+
     public class Bot
     {
         public string Token { get; set; }
@@ -216,6 +300,27 @@ namespace TeleBot
 
             Client = new TelegramBotClient(Token);
 
+        }
+
+        public bool IsOk()
+        {
+            try
+            {
+                var m = Client.GetMeAsync().Result;
+
+                return m.IsBot;
+
+            }
+            catch (Exception)
+            {
+
+                return false;
+            }
+
+        }
+
+        public void Start()
+        {
             // StartReceiving does not block the caller thread. Receiving is done on the ThreadPool.
             ReceiverOptions receiverOptions = new ReceiverOptions() { AllowedUpdates = { } };
 
@@ -317,6 +422,7 @@ namespace TeleBot
 
             //_pickedOption = callbackQuery.Data ?? string.Empty;
 
+            
             await botClient.AnswerCallbackQueryAsync(
                 callbackQueryId: callbackQuery.Id,
                 text: $"Received {callbackQuery.Data}");

@@ -12,7 +12,7 @@ namespace PluginBase
 
         string GetCommand();
 
-        public void ExecuteAsync(IPluginScope scope);
+        public Task ExecuteAsync(IPluginScope scope);
     }
 
     public interface IPluginScope

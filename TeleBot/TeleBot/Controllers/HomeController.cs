@@ -20,12 +20,15 @@ namespace TeleBot.Controllers
 
         public IActionResult Index()
         {
-            return View();
+            var storage = StorageManager.Data;
+            return View(storage);
         }
 
-        public IActionResult Privacy()
+        [HttpPost]
+        public IActionResult AddBot([FromBody]string token)
         {
-            return View();
+            BotManager.Add(token);
+            return Ok();
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

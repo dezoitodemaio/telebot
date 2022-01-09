@@ -1,8 +1,33 @@
-﻿@{
+﻿@model TeleBot.Storage;
+
+@{
     ViewData["Title"] = "Home Page";
 }
 
 <div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+    <h1 class="display-4">Bots</h1>
+    <br />
+    <div class="row">
+        <div class="input-group mb-3">
+            <input id="token" type="text" class="form-control" placeholder="Token" aria-label="Token" aria-describedby="basic-addon2">
+            <div class="input-group-append">
+                <button class="btn btn-outline-primary" type="button" onclick="addBot($('#token').val())">Adicionar BOT</button>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        @foreach (var item in Model.Tokens)
+        {
+            <div class="col-sm-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">@item</h5>
+                        @*<p class="card-text">With supporting text below as a natural lead-in to additional content.</p>*@
+                        <a href="#" class="btn btn-danger">Remover</a>
+                    </div>
+                </div>
+            </div>
+
+        }
+    </div>
 </div>
